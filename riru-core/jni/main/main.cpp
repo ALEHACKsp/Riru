@@ -22,6 +22,7 @@
 #include "module.h"
 #include "JNIHelper.h"
 #include "api.h"
+#include "version.h"
 
 #define CONFIG_DIR "/data/misc/riru"
 #define CONFIG_DIR_MAGISK "/sbin/riru"
@@ -131,11 +132,7 @@ static void load_modules() {
             if (sym)
                 ((void (*)(const char *)) sym)(module->name);
 
-#ifdef __LP64__
             LOGI("module loaded: %s (api %d)", module->name, module->apiVersion);
-#else
-            LOGI("module loaded: %s %u", module->name, get_modules()->size());
-#endif
 
             if (module->onModuleLoaded) {
                 LOGV("%s: onModuleLoaded", module->name);
@@ -168,8 +165,8 @@ static JNINativeMethod *onRegisterZygote(JNIEnv *env, const char *className,
                 newMethods[i].fnPtr = (void *) nativeForkAndSpecialize_oreo;
             else if (strcmp(nativeForkAndSpecialize_p_sig, method.signature) == 0)
                 newMethods[i].fnPtr = (void *) nativeForkAndSpecialize_p;
-            else if (strcmp(nativeForkAndSpecialize_q_sig, method.signature) == 0)
-                newMethods[i].fnPtr = (void *) nativeForkAndSpecialize_q;
+            else if (strcmp(nativeForkAndSpecialize_q_beta4_sig, method.signature) == 0)
+                newMethods[i].fnPtr = (void *) nativeForkAndSpecialize_q_beta4;
             else if (strcmp(nativeForkAndSpecialize_samsung_p_sig, method.signature) == 0)
                 newMethods[i].fnPtr = (void *) nativeForkAndSpecialize_samsung_p;
             else if (strcmp(nativeForkAndSpecialize_samsung_o_sig, method.signature) == 0)
@@ -191,8 +188,10 @@ static JNINativeMethod *onRegisterZygote(JNIEnv *env, const char *className,
         } else if (strcmp(method.name, "nativeSpecializeAppProcess") == 0) {
             set_nativeSpecializeAppProcess(method.fnPtr);
 
-            if (strcmp(nativeSpecializeAppProcess_sig, method.signature) == 0)
-                newMethods[i].fnPtr = (void *) nativeSpecializeAppProcess;
+            if (strcmp(nativeSpecializeAppProcess_sig_q_beta4, method.signature) == 0)
+                newMethods[i].fnPtr = (void *) nativeSpecializeAppProcess_q_beta4;
+            else if (strcmp(nativeSpecializeAppProcess_sig_q, method.signature) == 0)
+                newMethods[i].fnPtr = (void *) nativeSpecializeAppProcess_q;
             else
                 LOGW("found nativeSpecializeAppProcess but signature %s mismatch", method.signature);
 
@@ -289,7 +288,7 @@ void unhook_jniRegisterNativeMethods() {
                    nullptr);
     if (xhook_refresh(0) == 0) {
         xhook_clear();
-        LOGI("hook removed");
+        LOGV("hook removed");
     }
 }
 
@@ -325,9 +324,9 @@ void constructor() {
         return;
 
 #ifdef __LP64__
-    LOGI("riru in zygote64");
+    LOGI("Riru %s in zygote64", VERSION_NAME);
 #else
-    LOGI("riru in zygote");
+    LOGI("Riru %s in zygote", VERSION_NAME);
 #endif
 
     LOGI("config dir is %s", get_config_dir());
