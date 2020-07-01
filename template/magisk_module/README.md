@@ -8,9 +8,25 @@ See [https://github.com/RikkaApps/Riru](https://github.com/RikkaApps/Riru) for m
 
 ## Changelog
 
+### v21.3 (36) (2020-07-01)
+
+- Support custom ROMs with isTopApp changes backported (#106)
+
+### v21.2 (35) (2020-05-08)
+
+- Works on Android R DP4
+
+### v21.1 (34) (2020-04-28)
+
+- Generate a random name for libmemtrack_real to temporarily make SafetyNet happy (this can't work for long)
+
+### v21.0 (33) (2020-04-24)
+
+- Works on Android R DP3
+
 ### v20.1 (32) (2020-04-21)
 
-- Works Android R DP2
+- Works on Android R DP2
 
 ### v19.8 (30)
 
