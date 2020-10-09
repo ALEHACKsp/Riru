@@ -1,104 +1,37 @@
-#ifndef MODULE_H
-#define MODULE_H
+#pragma once
 
 #include <jni.h>
+#include <string>
 #include <map>
 #include <vector>
+#include "api.h"
 
 #define MODULE_NAME_CORE "core"
 
-using loaded_t=void();
+struct RiruModuleExt : RiruModule {
 
-// ---------------------------------------------------------
-
-using nativeForkAndSpecialize_pre_t = void(
-        JNIEnv *, jclass, jint, jint, jintArray, jint, jobjectArray, jint, jstring, jstring,
-        jintArray, jintArray, jboolean, jstring, jstring);
-
-using nativeForkAndSpecialize_pre_v2_t = void(
-        JNIEnv *, jclass, jint *, jint *, jintArray *, jint *, jobjectArray *, jint *, jstring *,
-        jstring *, jintArray *, jintArray *, jboolean *, jstring *, jstring *);
-
-using nativeForkAndSpecialize_pre_v3_t = void(
-        JNIEnv *, jclass, jint *, jint *, jintArray *, jint *, jobjectArray *, jint *, jstring *,
-        jstring *, jintArray *, jintArray *, jboolean *, jstring *, jstring *, jstring *,
-        jobjectArray *, jstring *);
-
-using nativeForkAndSpecialize_pre_v5_t = void(
-        JNIEnv *, jclass, jint *, jint *, jintArray *, jint *, jobjectArray *, jint *, jstring *,
-        jstring *, jintArray *, jintArray *, jboolean *, jstring *, jstring *, jboolean *,
-        jobjectArray *);
-
-using nativeForkAndSpecialize_pre_v6_t = void(
-        JNIEnv *, jclass, jint *, jint *, jintArray *, jint *, jobjectArray *, jint *, jstring *,
-        jstring *, jintArray *, jintArray *, jboolean *, jstring *, jstring *, jboolean *,
-        jobjectArray *, jboolean *);
-
-using nativeForkAndSpecialize_pre_v7_t = void(
-        JNIEnv *, jclass, jint *, jint *, jintArray *, jint *, jobjectArray *, jint *, jstring *,
-        jstring *, jintArray *, jintArray *, jboolean *, jstring *, jstring *, jboolean *,
-        jobjectArray *,jobjectArray *, jboolean *, jboolean *);
-
-using nativeForkAndSpecialize_post_t = int(
-        JNIEnv *, jclass, jint);
-
-// ---------------------------------------------------------
-
-using nativeForkSystemServer_pre_t = void(
-        JNIEnv *, jclass, uid_t, gid_t, jintArray, jint, jobjectArray, jlong, jlong);
-
-using nativeForkSystemServer_pre_v2_t = void(
-        JNIEnv *, jclass, uid_t *, gid_t *, jintArray *, jint *, jobjectArray *, jlong *, jlong *);
-
-using nativeForkSystemServer_post_t = int(JNIEnv *, jclass, jint);
-
-// ---------------------------------------------------------
-
-using nativeSpecializeAppProcess_pre_v4_t = void(
-        JNIEnv *, jclass, jint *, jint *, jintArray *, jint *, jobjectArray *, jint *, jstring *,
-        jstring *, jboolean *, jstring *, jstring *, jstring *, jobjectArray *, jstring *);
-
-using nativeSpecializeAppProcess_pre_v5_t = void(
-        JNIEnv *, jclass, jint *, jint *, jintArray *, jint *, jobjectArray *, jint *, jstring *,
-        jstring *, jboolean *, jstring *, jstring *, jboolean *, jobjectArray *);
-
-using nativeSpecializeAppProcess_pre_v6_t = void(
-        JNIEnv *, jclass, jint *, jint *, jintArray *, jint *, jobjectArray *, jint *, jstring *,
-        jstring *, jboolean *, jstring *, jstring *, jboolean *, jobjectArray *, jboolean *);
-
-using nativeSpecializeAppProcess_pre_v7_t = void(
-        JNIEnv *, jclass, jint *, jint *, jintArray *, jint *, jobjectArray *, jint *, jstring *,
-        jstring *, jboolean *, jstring *, jstring *, jboolean *, jobjectArray *, jobjectArray *,
-        jboolean *, jboolean *);
-
-using nativeSpecializeAppProcess_post_t = int(JNIEnv *, jclass);
-
-using shouldSkipUid_t = int(int);
-
-using getApiVersion_t = int();
-
-struct module {
     void *handle{};
-    char *name;
-    void *onModuleLoaded{};
-    void *forkAndSpecializePre{};
-    void *forkAndSpecializePost{};
-    void *forkSystemServerPre{};
-    void *forkSystemServerPost{};
-    void *specializeAppProcessPre{};
-    void *specializeAppProcessPost{};
-    void *shouldSkipUid{};
-    void *getApiVersion{};
-    int apiVersion = 0;
+    const char *name;
     std::map<std::string, void *> *funcs;
+    uint32_t token;
 
-    explicit module(char *name) : name(name) {
+    explicit RiruModuleExt(const char *name) : name(name) {
         funcs = new std::map<std::string, void *>();
+        token = (uintptr_t) name;
+        apiVersion = 0;
+        supportHide = 0;
+        onModuleLoaded = nullptr;
+        shouldSkipUid = nullptr;
+        forkAndSpecializePre = nullptr;
+        forkAndSpecializePost = nullptr;
+        forkSystemServerPre = nullptr;
+        forkSystemServerPost = nullptr;
+        specializeAppProcessPre = nullptr;
+        specializeAppProcessPost = nullptr;
     }
 };
 
-std::vector<module *> *get_modules();
 
-void put_native_method(const char *className, const JNINativeMethod *methods, int numMethods);
+std::vector<RiruModuleExt *> *get_modules();
 
-#endif // MODULE_H
+void load_modules();

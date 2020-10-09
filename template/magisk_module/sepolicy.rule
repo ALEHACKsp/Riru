@@ -1,2 +1,5 @@
-# allow zygote to enter /data/adb
+# enter /data/adb
 allow zygote adb_data_file dir search
+
+# create file in /dev
+allow zygote device { dir file }  *

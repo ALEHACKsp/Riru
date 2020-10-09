@@ -7,14 +7,14 @@ idea.module {
 }
 
 buildscript {
-    ext.kotlin_version = '1.3.72'
+    ext.kotlin_version = '1.4.10'
 
     repositories {
         google()
         jcenter()
     }
     dependencies {
-        classpath 'com.android.tools.build:gradle:3.6.3'
+        classpath 'com.android.tools.build:gradle:4.2.0-alpha13'
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
     }
 }
@@ -33,7 +33,5 @@ task clean(type: Delete) {
 
 ext {
     minSdkVersion = 23
-    targetSdkVersion = 28
+    targetSdkVersion = 30
 }
-
-def magiskDir = file("$rootDir/magisk_repo")
