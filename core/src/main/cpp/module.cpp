@@ -9,32 +9,36 @@
 #include "status.h"
 #include "hide_utils.h"
 
-std::vector<RiruModuleExt *> *get_modules() {
-    static auto *modules = new std::vector<RiruModuleExt *>({new RiruModuleExt(strdup(MODULE_NAME_CORE))});
+std::vector<RiruModule *> *get_modules() {
+    static auto *modules = new std::vector<RiruModule *>({new RiruModule(strdup(MODULE_NAME_CORE))});
     return modules;
+}
+
+static RiruModuleInfoV9 *init_module_v9(uint32_t token, RiruInit_t *init) {
+    auto riru = new RiruApiV9();
+    riru->token = token;
+    riru->getFunc = riru_get_func;
+    riru->setFunc = riru_set_func;
+    riru->getJNINativeMethodFunc = riru_get_native_method_func;
+    riru->setJNINativeMethodFunc = riru_set_native_method_func;
+    riru->getOriginalJNINativeMethodFunc = riru_get_original_native_methods;
+
+    return (RiruModuleInfoV9 *) init(riru);
+}
+
+static void cleanup_module(void *handle) {
+    dlclose(handle);
+    // maybe manually munmap?
 }
 
 void load_modules() {
     DIR *dir;
     struct dirent *entry;
-    char path[PATH_MAX], modules_path[PATH_MAX], module_prop[PATH_MAX], prop_value[PATH_MAX];
-    int module_api_version;
+    char path[PATH_MAX];
     void *handle;
+    const int riruApiVersion = RIRU_API_VERSION;
 
-    RiruFuncs riru_funcs;
-    riru_funcs.getFunc = riru_get_func;
-    riru_funcs.setFunc = riru_set_func;
-    riru_funcs.getJNINativeMethodFunc = riru_get_native_method_func;
-    riru_funcs.setJNINativeMethodFunc = riru_set_native_method_func;
-    riru_funcs.getOriginalJNINativeMethodFunc = riru_get_original_native_methods;
-
-    Riru riru_init_data;
-    riru_init_data.version = RIRU_VERSION_CODE;
-    riru_init_data.funcs = &riru_funcs;
-
-    snprintf(modules_path, PATH_MAX, "%s/modules", CONFIG_DIR);
-
-    if (!(dir = _opendir(modules_path))) return;
+    if (!(dir = _opendir(MODULES_DIR))) return;
 
     while ((entry = _readdir(dir))) {
         if (entry->d_type != DT_DIR) continue;
@@ -49,21 +53,6 @@ void load_modules() {
             continue;
         }
 
-        snprintf(module_prop, PATH_MAX, "%s/%s/module.prop", modules_path, name);
-        if (access(module_prop, F_OK) != 0) {
-            PLOGE("access %s", module_prop);
-            continue;
-        }
-
-        module_api_version = -1;
-        if (get_prop(module_prop, "api", prop_value) > 0) {
-            module_api_version = atoi(prop_value);
-        }
-        if (module_api_version < 8) {
-            LOGW("module %s does not support Riru v21+", name);
-            continue;
-        }
-
         handle = dlopen(path, 0);
         if (!handle) {
             LOGE("dlopen %s failed: %s", path, dlerror());
@@ -72,18 +61,42 @@ void load_modules() {
 
         auto init = (RiruInit_t *) dlsym(handle, "init");
         if (!init) {
-            LOGW("module %s does not export init", name);
-            dlclose(handle);
+            LOGW("%s does not export init", path);
+            cleanup_module(handle);
             continue;
         }
 
-        auto *module = new RiruModuleExt(strdup(name));
+        // 1. pass riru api version, return module's api version
+        auto apiVersion = (int *) init((void *) &riruApiVersion);
+        if (apiVersion == nullptr) {
+            LOGE("%s returns null on step 1", path);
+            cleanup_module(handle);
+            continue;
+        }
 
-        riru_init_data.module = module;
-        riru_init_data.token = module->token;
-        init(&riru_init_data);
+        if (*apiVersion < RIRU_MIN_API_VERSION || *apiVersion > RIRU_API_VERSION) {
+            LOGW("unsupported API %s: %d", name, *apiVersion);
+            cleanup_module(handle);
+            continue;
+        }
 
+        // 2. create and pass Riru struct by module's api version
+        auto module = new RiruModule(strdup(name));
         module->handle = handle;
+        module->apiVersion = *apiVersion;
+
+        if (*apiVersion == 9) {
+            auto info = init_module_v9(module->token, init);
+            if (info == nullptr) {
+                LOGE("%s returns null on step 2", path);
+                cleanup_module(handle);
+                continue;
+            }
+            module->info(info);
+        }
+
+        // 3. let the module to do some cleanup jobs
+        init(nullptr);
 
         get_modules()->push_back(module);
 
@@ -114,7 +127,7 @@ void load_modules() {
     }
 
     for (auto module : *get_modules()) {
-        if (module->onModuleLoaded) {
+        if (module->hasOnModuleLoaded()) {
             LOGV("%s: onModuleLoaded", module->name);
 
             module->onModuleLoaded();
