@@ -45,8 +45,10 @@ ui_print "- Extracting Magisk files"
 
 extract "$ZIPFILE" 'module.prop' "$MODPATH"
 extract "$ZIPFILE" 'post-fs-data.sh' "$MODPATH"
+extract "$ZIPFILE" 'service.sh' "$MODPATH"
 extract "$ZIPFILE" 'uninstall.sh' "$MODPATH"
 extract "$ZIPFILE" 'sepolicy.rule' "$MODPATH"
+extract "$ZIPFILE" 'system.prop' "$MODPATH"
 
 if [ "$ARCH" = "x86" ] || [ "$ARCH" = "x64" ]; then
   ui_print "- Extracting x86 libraries"
@@ -76,19 +78,32 @@ else
   fi
 fi
 
+# Use magisk_file like other Magisk files
+SECONTEXT="u:object_r:magisk_file:s0"
+
+ui_print "- Creating Riru path"
 mkdir "$RIRU_PATH"
+set_perm "$RIRU_PATH" 0 0 0700 $SECONTEXT
+mkdir "$RIRU_PATH/bin"
+set_perm "$RIRU_PATH/bin" 0 0 0700 $SECONTEXT
 
 ui_print "- Extracting classes.dex"
-mkdir -p "$RIRU_PATH/bin"
-set_perm "$RIRU_PATH/bin" 0 0 0700
 extract "$ZIPFILE" "classes.dex" "$RIRU_PATH/bin"
 mv "$RIRU_PATH/bin/classes.dex" "$RIRU_PATH/bin/rirud.dex"
-set_perm "$RIRU_PATH/bin/rirud.dex" 0 0 0700
+set_perm "$RIRU_PATH/bin/rirud.dex" 0 0 0700 $SECONTEXT
 
 # write api version to a persist file, only for the check process of the module installation
 ui_print "- Writing Riru files"
 echo -n "$RIRU_API" > "$RIRU_PATH/api_version.new"
-set_perm "$RIRU_PATH/api_version.new" 0 0 0600
+set_perm "$RIRU_PATH/api_version.new" 0 0 0600 $SECONTEXT
 
 ui_print "- Setting permissions"
 set_perm_recursive "$MODPATH" 0 0 0755 0644
+
+# before Magisk 16e4c67, sepolicy.rule is copied on the second reboot
+if [ "$MAGISK_VER_CODE" -lt 21006 ]; then
+  ui_print "*******************************"
+  ui_print "- Magisk version below 21006."
+  ui_print "- You have to manually reboot twice for the first installation."
+  ui_print "*******************************"
+fi
